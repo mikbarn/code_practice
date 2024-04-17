@@ -43,8 +43,6 @@ void dump_arr_mod(int* arr, int n, int mod) {
 }
 
 
-const char* vals[] = {"a", "b", "c", "d", "e"};
-
 /*
 123
 132
@@ -124,11 +122,7 @@ const char* vals[] = {"a", "b", "c", "d", "e"};
 12430
 
 */
-int* swap3(int *cntr, int n, int *dest, int start) {
-    if (dest == NULL) {
-        dest = new int[18];
-        start = 0;
-    }
+void swap3(int *cntr, int n, int *dest, int start) {
     int last = n - 1;
     int lmo = n - 2;
     int lmt = n - 3;
@@ -165,8 +159,6 @@ int* swap3(int *cntr, int n, int *dest, int start) {
         dest[start + (4*n) + i] = cntr[i];
         dest[start + (5*n) + i] = cntr[i];
     }
-
-    return dest;
 }
 
 int* perm(int n) {
@@ -184,7 +176,8 @@ int* perm(int n) {
         rval[0] = 0; rval[1] = 1; rval[2] = 1; rval[3] = 0;
     }
     else if (n == 3) {
-        rval = swap3(cntr, n, NULL, 0);
+        rval = new int[18];
+        swap3(cntr, n, rval, 0);
     }
     else {
         int vary_len = n - 3;
@@ -201,9 +194,12 @@ int* perm(int n) {
         while (q < iters) {
             swap3(cntr, n, rval, q * n);
             int rem = swaps[swap_idx];
-            while (rem <= 0 && swap_idx < vary_len) {
+            //cout << swap_idx << " " << rem << endl;
+            while (swap_idx < vary_len && rem <= 0) {
                 swap_idx++;
-                rem = swaps[swap_idx];
+                if (swap_idx < vary_len) { // TODO simplify
+                    rem = swaps[swap_idx];
+                }
             }
             swaps[swap_idx]--;
             if (swap_idx >= vary_len - 1 && rem <= 0) {
@@ -222,7 +218,7 @@ int* perm(int n) {
                 for (int t = 0; t < z; t++) {
                     cntr[n - 1 - t] = last_n[t];
                 }
-                delete last_n;
+                delete[] last_n;
 
                 for(int i = 0; i < swap_idx; i++) {
                     swaps[i] = i + 3;
@@ -232,10 +228,10 @@ int* perm(int n) {
             q += 6;
         }
 
-        delete swaps;
+        delete[] swaps;
     }
 
-    delete cntr;
+    delete[] cntr;
     return rval;
 
 }
@@ -291,47 +287,59 @@ vector<string> choose(int n, const char* vals[], int r) {
 
 
     }
-    delete cntr;
+    delete[] cntr;
     return res;
 }
 
-void test(int actual,int  n, int r) {
+void test_combo(int actual, int  n, int r) {
     int expected = fact(n) / (fact(r) * fact(n-r));
     cout << "expected: " << expected << " actual: " << actual << endl;
 }
 
+void run_perm(int n, bool print) {
+    int f = fact(n);
+    cout << "Generating " << f << " permutations " << endl;
+    int* permutations = perm(n);
+    if (print) {
+        dump_arr_mod(permutations, f * n, n);
+        cout << endl << endl;
+    }
+    delete[] permutations;
+}
+
 int main(int argc, char **args) {
-    const char* v2[] = {"1", "2", "3", "4"};
-    //40320
-    dump_arr_mod(perm(6), 720 * 6, 6);
-    cout << endl  << endl;
-    exit(0);
-    dump_arr_mod(perm(5), 120 * 5, 5);
-    cout << endl  << endl;
-    exit(0);
-    dump_arr_mod(perm(4), 24 * 4, 4);
-    cout << endl  << endl;
-    dump_arr_mod(perm(3), 18, 3);
-    exit(0);
-    dump_arr_mod(perm(2), 4, 2);
-    dump_arr_mod(perm(1), 1, 1);
-    exit(0);
+
     int tests[] = {12, 10, 8, 7, 5, 3, 2, 1, 0};
 
     for (int i = 0; i < 9; i++) {
         cout << tests[i] << " factorial is " << fact(tests[i]) << endl;
     }
 
+    const char* vals[] = {"a", "b", "c", "d", "e"};
     vector<string> results;
     results = choose(5, vals, 3);
-    test(results.size(), 5, 3);
+    test_combo(results.size(), 5, 3);
 
     results = choose(5, vals, 5);
-    test(results.size(), 5, 5);
+    test_combo(results.size(), 5, 5);
 
     results = choose(5, vals, 4);
-    test(results.size(), 5, 4);
+    test_combo(results.size(), 5, 4);
 
     results = choose(5, vals, 1);
-    test(results.size(), 5, 1);
+    test_combo(results.size(), 5, 1);
+
+    run_perm(1, true);
+    run_perm(2, true);
+    run_perm(3, true);
+    run_perm(4, true);
+    run_perm(5, false);
+    run_perm(6, false);
+    run_perm(5, false);
+    run_perm(4, false);
+    run_perm(7, false);
+    run_perm(9, false);
+    run_perm(10, false);
+
+
 }

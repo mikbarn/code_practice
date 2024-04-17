@@ -6,6 +6,8 @@
 #include <sstream>
 #include <map>
 #include <cmath>
+#include <memory>
+#include <array>
 #include <vector>
 
 using namespace std;
@@ -27,7 +29,7 @@ template <typename T> struct Node {
             return BLACK;
         }
         return n->col;
-    }   
+    }
 
     static string val(Node *n) {
         if (n == NULL) {
@@ -43,7 +45,7 @@ template <typename T> struct Node {
         ss << "Node '" << t << "' (" << (col == RED? "RED": "BLACK") << ") @[" << val(left) << ", " << val(right) << ", " << val(parent) << "]";
         return ss.str();
     }
-    
+
 };
 
 template <typename T> struct Side {
@@ -72,8 +74,9 @@ template <typename T> struct Side {
 
 
 template <typename T> class BinTree {
+    typedef shared_ptr<T[]> dyn;
     public:
-        Node<T> *root;
+        Node<T> *root = NULL;
         BinTree();
 
         std::list<T> Inorder();
@@ -86,7 +89,7 @@ template <typename T> class BinTree {
         void checkAndRebalance(Node<T> *n);
         void rotateDir(Node<T> *n, Node<T> *p, Dir dir); // rotate n to p position
         void deleteNodeRecursive(Node<T> *n);
-        void gridNodes(map<int, vector<T>> &m, Node<T> *n, int path, int depth, int &maxdepth);
+        void gridNodes(map<int, dyn> &m, Node<T> *n, int path, int depth, int &maxdepth);
         string space(int count);
 };
 
@@ -99,34 +102,60 @@ template <typename T> string BinTree<T>::space(int count) {
 }
 
 template <typename T> void BinTree<T>::printTree() {
-    map<int, vector<T>> m = map<int, vector<T>>();
-    int path = 0;
+    if (root == NULL) {
+        cout << "No tree" << endl;
+        return;
+    }
+    map<int, dyn> m = map<int, dyn>();
     int maxdepth = 0;
-    gridNodes(m, root, path, 0, maxdepth);
-    vector<vector<int>> gaps = vector<vector<int>>(maxdepth+1);
+    gridNodes(m, root, 0, 0, maxdepth);
+    cout << "Tree depth: " << maxdepth << endl;
+
+    maxdepth += 1;
+    auto gaps = vector<array<int, 2>>(maxdepth);
     gaps[0][0] = 0;
     gaps[0][1] = 1;
-    for (int i = 1; i <= maxdepth; i++) {
+    for (int i = 1; i < maxdepth; i++) {
         int prev = gaps[i-1][1];
-        gaps[i] = {prev, 2*prev+1};
+        gaps[i][0] = prev;
+        gaps[i][1] = 2*prev+1;
     }
-    for (int i = 0; i <= maxdepth ; i++) {
-            vector<T> v = m[i];
-            vector<int> spaces = gaps[maxdepth - i];
-            cout << space(spaces[0]) << v[0];
-            for (int j = 1; j < v.size(); j++) {
-                cout << space(spaces[1]);
-                if (v[j] != NULL) {
-                    cout << v[j];
-                } else {
+    for (int i = 0; i < maxdepth; i++) {
+        auto x = gaps[i];
+        cout << x[0] << ", " << x[1] << endl;
+    }
+    for (const auto& [key, value] : m) {
+        cout << "k: " << key << " v: [";
+        for (int j = 0; j < pow(2, key); j++) {
+            cout << value[j] << ", ";
+        }
+        cout << "]" << endl;
+    }
+
+    for (int i = 0; i < maxdepth; i++) {
+            dyn arr = m[i];
+            int size = pow(2, i);
+            string small = space(gaps[maxdepth - 1 - i][0]);
+            string big = space(gaps[maxdepth - 1 - i][1]);
+            // cout << "small '" << small << "' big '" << big << "' " << endl;
+            cout << small << arr[0];
+            for (int j = 1; j < size; j++) {
+                cout << big;
+                if (arr[j] == 0) {
                     cout << "X";
+                } else {
+                    cout << arr[j];
                 }
             }
             cout << endl;
     }
+    // if (maxdepth > 1) {
+    //     exit(0);
+    // }
 }
 
-template <typename T> void BinTree<T>::gridNodes(map<int, vector<T>> &m, Node<T> *n, int path, int depth,  int &maxdepth) {
+template <typename T> void BinTree<T>::gridNodes(map<int, dyn> &m, Node<T> *n, int path, int depth,  int &maxdepth) {
+    cout << "Grid Nodes " << path << " " << depth << " "  << maxdepth << " " <<  n->str() << endl;
     maxdepth = max(depth, maxdepth);
     if (n->left != NULL) {
         int p = path << 1;
@@ -137,10 +166,16 @@ template <typename T> void BinTree<T>::gridNodes(map<int, vector<T>> &m, Node<T>
         gridNodes(m, n->right, p + 1, depth+1, maxdepth);
     }
     if (m.count(depth) == 0) {
-        m[depth] = vector<T>(pow(2,depth));
+        cout << "Insert?" << endl;
+        int size = pow(2,depth);
+        dyn a = dyn(new int[size]);
+        for (int i = 0; i < size; i++) {
+            a[i] = 0;
+        }
+        m[depth] = a;//array(new int[size]);
     }
-    vector<T> v = m[depth];
-    v[path] = n->t;
+    dyn arr = m[depth];
+    arr[path] = n->t;
 
 }
 
@@ -170,13 +205,13 @@ template <typename T> void BinTree<T>::insert(const T &t) {
     printTree();
     Node<T> *n = new Node<T>(t);
     cout << "Inserting " << n->str() << endl;
-    if(root == NULL) { 
+    if(root == NULL) {
         root = n;
         root->col = BLACK;
-        cout << "Set root: " << root->str() << endl;        
+        cout << "Set root: " << root->str() << endl;
         return;
     }
-   
+
     Node<T> *x = root;
     int depth = 0;
     while (true) {
@@ -203,7 +238,7 @@ template <typename T> void BinTree<T>::insert(const T &t) {
         depth++;
     }
     cout << "Inserted " << n->str() << " at depth " << depth << endl;
-    checkAndRebalance(n);
+    // checkAndRebalance(n);
 }
 
 template <typename T> void BinTree<T>::checkAndRebalance(Node<T> *n) {
@@ -216,7 +251,7 @@ template <typename T> void BinTree<T>::checkAndRebalance(Node<T> *n) {
         return;
     }
     Node<T> *p, *u, *g;
-    
+
     while (true) {
         cout << "Enter loop " << endl;
         if (n == root && n->col == RED) {
@@ -270,7 +305,7 @@ template <typename T> void BinTree<T>::rotateDir(Node<T> *n, Node<T> *p, Dir dir
         if (g != NULL) {
             g->left = n;
         }
-        
+
         p->parent = n;
         p->right = n_l_save;
         return;
@@ -283,7 +318,7 @@ template <typename T> void BinTree<T>::rotateDir(Node<T> *n, Node<T> *p, Dir dir
         g->right = n;
     }
     p->parent = n;
-    p->left = n_r_save;    
+    p->left = n_r_save;
 
 }
 
