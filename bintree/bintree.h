@@ -120,17 +120,6 @@ template <typename T> void BinTree<T>::printTree() {
         gaps[i][0] = prev;
         gaps[i][1] = 2*prev+1;
     }
-    for (int i = 0; i < maxdepth; i++) {
-        auto x = gaps[i];
-        cout << x[0] << ", " << x[1] << endl;
-    }
-    for (const auto& [key, value] : m) {
-        cout << "k: " << key << " v: [";
-        for (int j = 0; j < pow(2, key); j++) {
-            cout << value[j] << ", ";
-        }
-        cout << "]" << endl;
-    }
 
     for (int i = 0; i < maxdepth; i++) {
             dyn arr = m[i];
@@ -155,7 +144,7 @@ template <typename T> void BinTree<T>::printTree() {
 }
 
 template <typename T> void BinTree<T>::gridNodes(map<int, dyn> &m, Node<T> *n, int path, int depth,  int &maxdepth) {
-    cout << "Grid Nodes " << path << " " << depth << " "  << maxdepth << " " <<  n->str() << endl;
+    // cout << "Grid Nodes " << path << " " << depth << " "  << maxdepth << " " <<  n->str() << endl;
     maxdepth = max(depth, maxdepth);
     if (n->left != NULL) {
         int p = path << 1;
@@ -166,7 +155,6 @@ template <typename T> void BinTree<T>::gridNodes(map<int, dyn> &m, Node<T> *n, i
         gridNodes(m, n->right, p + 1, depth+1, maxdepth);
     }
     if (m.count(depth) == 0) {
-        cout << "Insert?" << endl;
         int size = pow(2,depth);
         dyn a = dyn(new int[size]);
         for (int i = 0; i < size; i++) {
