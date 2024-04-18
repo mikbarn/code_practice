@@ -17,7 +17,7 @@ enum Dir {LEFT, RIGHT};
 
 
 template <typename T> struct Node {
-    const T &t;
+    const T t;
     Node *left = NULL, *right = NULL, *parent = NULL;
     Node(const T &r):t(r) {
         col = RED;
@@ -42,7 +42,7 @@ template <typename T> struct Node {
 
     string str() {
         stringstream ss;
-        ss << "Node '" << t << "' (" << (col == RED? "RED": "BLACK") << ") @[" << val(left) << ", " << val(right) << ", " << val(parent) << "]";
+        ss << "Node '" << t << "' (" << (col == RED? "RED": "BLACK") << ") @[" << val(left) << ", " << val(parent) << ", " << val(right) << "]";
         return ss.str();
     }
 
@@ -84,9 +84,9 @@ template <typename T> class BinTree {
         BinTree();
 
         std::list<T> Inorder();
-        void insert(const T &t);
-        void remove(const T &t);
-        bool exists(const T &t);
+        void insert(const T t);
+        void remove(const T t);
+        bool exists(const T t);
         void printTree();
         ~BinTree();
     private:
@@ -129,15 +129,24 @@ template <typename T> void BinTree<T>::printTree() {
         gaps[i][1] = 2*gaps[i][0]+1;
     }
 
+    for (const auto& [key, value]: m) {
+        cout << "k: " << key << " v: [";
+        for(int i = 0; i < pow(2,key); i++) {
+            cout << value[i] << (i < pow(2,key) - 1? ",": "");
+        }
+        cout << "]" << endl;
+
+    }
+
     for (int i = 0; i < maxdepth; i++) {
             dyn arr = m[i];
             int size = pow(2, i);
             string small = pad(gaps[maxdepth - 1 - i][0], "");
             string big = pad(gaps[maxdepth - 1 - i][1], "");
             // cout << "small '" << small << "' big '" << big << "' " << endl;
-            cout << small << arr[0];
-            for (int j = 1; j < size; j++) {
-                cout << big;
+            //cout << small << arr[0];
+            for (int j = 0; j < size; j++) {
+                cout << (j==0? small: big);
                 if (arr[j] == "") {
                     cout << pad(print_size, "x");
                 } else {
@@ -201,7 +210,7 @@ template <typename T> BinTree<T>::~BinTree() {
 }
 
 
-template <typename T> void BinTree<T>::insert(const T &t) {
+template <typename T> void BinTree<T>::insert(const T t) {
     Node<T> *n = new Node<T>(t);
     cout << "Inserting " << n->str() << endl;
     if(root == NULL) {
@@ -256,21 +265,21 @@ template <typename T> void BinTree<T>::checkAndRebalance(Node<T> *n) {
 
     while (true) {
         cout << "Enter loop " << endl;
-        if (n == root && n->col == RED) {
-            cout << "RED root swap to BLACK! " << endl;
-            //n->col = BLACK;
+        if (n == root ) { //&& n->col == RED
+            // cout << "RED root swap to BLACK! " << endl;
+            // n->col = BLACK;
             break;
         }
         p = n->parent;
         Side<T> s = Side(n, p);
 
         if(p == root) {
-            cout << "Parent is RED root. " << endl;
-            Node<T> *sibling = s.other(p);
-            if (sibling != NULL) {
-                sibling->col = BLACK;
-            }
-            n->col = BLACK;
+            cout << "Parent is RED root. Swap to black!" << endl;
+            // Node<T> *sibling = s.other(p);
+            // if (sibling != NULL) {
+            //     sibling->col = BLACK;
+            // }
+            p->col = BLACK;
             break;
         }
 
@@ -285,6 +294,7 @@ template <typename T> void BinTree<T>::checkAndRebalance(Node<T> *n) {
             g->col = RED;
             n = g;
             p = u = NULL;
+            printTree();
             continue;
         } else {
             Side ps = Side(p, g);
@@ -303,14 +313,15 @@ template <typename T> void BinTree<T>::checkAndRebalance(Node<T> *n) {
             }
         }
     }
-    cout << "DONE??" << endl;
 
 }
 
 template <typename T> void BinTree<T>::rotateDir(Node<T> *n, Node<T> *p, Dir dir) {
     cout << "Rotating " << Side<T>::val(dir) << "!" << endl;
+    cout << n->str() << " --- " << p->str() << endl;
     Node<T> *g = p->parent;
-    if (dir == LEFT) {
+    bool left = dir == LEFT;
+    if (left) {
         Node<T> *n_l_save = n->left;
         n->left = p;
         p->right = n_l_save;
@@ -322,12 +333,16 @@ template <typename T> void BinTree<T>::rotateDir(Node<T> *n, Node<T> *p, Dir dir
 
     n->parent = g;
     p->parent = n;
-
-    if (p == root) {
-        // cout << "New root: " << n->str() << endl;
+    if (g != NULL) {
+        if (left) {
+            g->right = n;
+        } else {
+            g->left = n;
+        }
+    }else {
         root = n;
     }
-
+    cout << n->str() << " --- " << p->str() << endl;
 }
 
 
