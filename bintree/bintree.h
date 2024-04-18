@@ -46,6 +46,10 @@ template <typename T> struct Node {
         return ss.str();
     }
 
+    string col_str() {
+        return col == RED? "R" : "B";
+    }
+
 };
 
 template <typename T> struct Side {
@@ -74,7 +78,7 @@ template <typename T> struct Side {
 
 
 template <typename T> class BinTree {
-    typedef shared_ptr<T[]> dyn;
+    typedef shared_ptr<string[]> dyn;
     public:
         Node<T> *root = NULL;
         BinTree();
@@ -86,22 +90,26 @@ template <typename T> class BinTree {
         void printTree();
         ~BinTree();
     private:
+        int print_size = 1;
         void checkAndRebalance(Node<T> *n);
         void rotateDir(Node<T> *n, Node<T> *p, Dir dir); // rotate n to p position
         void deleteNodeRecursive(Node<T> *n);
         void gridNodes(map<int, dyn> &m, Node<T> *n, int path, int depth, int &maxdepth);
-        string space(int count);
+        string pad(int count, const string &val);
 };
 
-template <typename T> string BinTree<T>::space(int count) {
+template <typename T> string BinTree<T>::pad(int count, const string &val) {
     stringstream ss;
-    for (int i = 0; i < count; i++) {
+    int sz = val.size();
+    ss << val;
+    for (int i = 0; i < count-sz; i++) {
         ss << " ";
     }
     return ss.str();
 }
 
 template <typename T> void BinTree<T>::printTree() {
+    print_size = 1;
     if (root == NULL) {
         cout << "No tree" << endl;
         return;
@@ -109,7 +117,7 @@ template <typename T> void BinTree<T>::printTree() {
     map<int, dyn> m = map<int, dyn>();
     int maxdepth = 0;
     gridNodes(m, root, 0, 0, maxdepth);
-    cout << "Tree depth: " << maxdepth << endl;
+    cout << "Tree depth: " << maxdepth << " Print size: " << print_size << endl;
 
     maxdepth += 1;
     auto gaps = vector<array<int, 2>>(maxdepth);
@@ -117,23 +125,23 @@ template <typename T> void BinTree<T>::printTree() {
     gaps[0][1] = 1;
     for (int i = 1; i < maxdepth; i++) {
         int prev = gaps[i-1][1];
-        gaps[i][0] = prev;
-        gaps[i][1] = 2*prev+1;
+        gaps[i][0] = prev + 1;
+        gaps[i][1] = 2*gaps[i][0]+1;
     }
 
     for (int i = 0; i < maxdepth; i++) {
             dyn arr = m[i];
             int size = pow(2, i);
-            string small = space(gaps[maxdepth - 1 - i][0]);
-            string big = space(gaps[maxdepth - 1 - i][1]);
+            string small = pad(gaps[maxdepth - 1 - i][0], "");
+            string big = pad(gaps[maxdepth - 1 - i][1], "");
             // cout << "small '" << small << "' big '" << big << "' " << endl;
             cout << small << arr[0];
             for (int j = 1; j < size; j++) {
                 cout << big;
-                if (arr[j] == 0) {
-                    cout << "X";
+                if (arr[j] == "") {
+                    cout << pad(print_size, "x");
                 } else {
-                    cout << arr[j];
+                    cout << pad(print_size, arr[j]);
                 }
             }
             cout << endl;
@@ -156,14 +164,18 @@ template <typename T> void BinTree<T>::gridNodes(map<int, dyn> &m, Node<T> *n, i
     }
     if (m.count(depth) == 0) {
         int size = pow(2,depth);
-        dyn a = dyn(new int[size]);
+        dyn a = dyn(new string[size]);
         for (int i = 0; i < size; i++) {
-            a[i] = 0;
+            a[i] = "";
         }
-        m[depth] = a;//array(new int[size]);
+        m[depth] = a;
     }
     dyn arr = m[depth];
-    arr[path] = n->t;
+    stringstream ss;
+    ss << n->t << n->col_str();
+    arr[path] = ss.str();
+    int len = arr[path].size();
+    print_size = max(print_size, len);
 
 }
 
@@ -190,7 +202,6 @@ template <typename T> BinTree<T>::~BinTree() {
 
 
 template <typename T> void BinTree<T>::insert(const T &t) {
-    printTree();
     Node<T> *n = new Node<T>(t);
     cout << "Inserting " << n->str() << endl;
     if(root == NULL) {
@@ -226,7 +237,10 @@ template <typename T> void BinTree<T>::insert(const T &t) {
         depth++;
     }
     cout << "Inserted " << n->str() << " at depth " << depth << endl;
-    // checkAndRebalance(n);
+    printTree();
+    checkAndRebalance(n);
+    cout << "Balanced tree ???" << endl;
+    printTree();
 }
 
 template <typename T> void BinTree<T>::checkAndRebalance(Node<T> *n) {
@@ -243,21 +257,30 @@ template <typename T> void BinTree<T>::checkAndRebalance(Node<T> *n) {
     while (true) {
         cout << "Enter loop " << endl;
         if (n == root && n->col == RED) {
-            cout << "RED root/parent swap to BLACK! " << endl;
-            n->col = BLACK;
+            cout << "RED root swap to BLACK! " << endl;
+            //n->col = BLACK;
             break;
         }
         p = n->parent;
         Side<T> s = Side(n, p);
-        u = s.other(p);
-        Color u_color = Node<T>::getColor(u);
+
+        if(p == root) {
+            cout << "Parent is RED root. " << endl;
+            Node<T> *sibling = s.other(p);
+            if (sibling != NULL) {
+                sibling->col = BLACK;
+            }
+            n->col = BLACK;
+            break;
+        }
+
         g = p->parent;
+        u = s.other(g);
+        Color u_color = Node<T>::getColor(u);
         cout << "Rebalance " << Node<T>::val(n) << " on " << Side<T>::val(s.side) << " side of parent " << Node<T>::val(p) << endl;
         if (u_color == RED) {
             cout << "RED parent w/ RED uncle so recolor! " << endl;
-            if (u != NULL) {
-                u->col = BLACK;
-            }
+            u->col = BLACK;
             p->col = BLACK;
             g->col = RED;
             n = g;
@@ -285,28 +308,25 @@ template <typename T> void BinTree<T>::checkAndRebalance(Node<T> *n) {
 }
 
 template <typename T> void BinTree<T>::rotateDir(Node<T> *n, Node<T> *p, Dir dir) {
-    if (dir == LEFT) {
-        Node<T> *g = p->parent;
-        Node<T> *n_l_save = n->left;
-        n->parent = g;
-        n->left = p;
-        if (g != NULL) {
-            g->left = n;
-        }
-
-        p->parent = n;
-        p->right = n_l_save;
-        return;
-    }
+    cout << "Rotating " << Side<T>::val(dir) << "!" << endl;
     Node<T> *g = p->parent;
-    Node<T> *n_r_save = n->right;
-    n->parent = g;
-    n->right = p;
-    if (g != NULL) {
-        g->right = n;
+    if (dir == LEFT) {
+        Node<T> *n_l_save = n->left;
+        n->left = p;
+        p->right = n_l_save;
+    } else {
+        Node<T> *n_r_save = n->right;
+        n->right = p;
+        p->left = n_r_save;
     }
+
+    n->parent = g;
     p->parent = n;
-    p->left = n_r_save;
+
+    if (p == root) {
+        // cout << "New root: " << n->str() << endl;
+        root = n;
+    }
 
 }
 
