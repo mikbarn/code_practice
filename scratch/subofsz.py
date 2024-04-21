@@ -46,7 +46,7 @@ def possibilites(set_count: int, input:list):
     item_count = len(input)
     set_sizes = sizes(set_count, item_count)
     rval = []
-    for sz_grp in set_sizes[:3]:
+    for sz_grp in set_sizes:
         taken = set()
         avail = set(input)
         #print(avail, taken)
