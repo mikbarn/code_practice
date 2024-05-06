@@ -3,11 +3,13 @@
 #include <memory>
 #include <cmath>
 #include <cstdlib>
+#include <time.h> 
 
 using namespace std;
 
 #define F_NOT_SET -1.0
 #define I_NOT_SET -1
+
 
 void die() {
     cout << "C'mon man!" << endl;
@@ -162,6 +164,11 @@ void solveKnapsack(int32_t item, float_t W, unique_ptr<float_t[]> &vals, unique_
        solveKnapsack(prev, W, vals, weights, memo);
     }
 
+    if (weights[item] > W) {
+        memo[MemoKey{item, W}] = memo[{MemoKey{prev, W}}];
+        return;
+    }
+
     float_t without_me = W - weights[item];
     if (memo[MemoKey{prev, without_me}] == F_NOT_SET) {
         solveKnapsack(prev, without_me, vals, weights, memo);
@@ -174,6 +181,8 @@ void solveKnapsack(int32_t item, float_t W, unique_ptr<float_t[]> &vals, unique_
 int main() {
     quickHashTest();
 
+    srand(time(NULL));
+
     uint32_t n = 10;
     auto vals = make_unique<float_t[]>(n);
     auto weights = make_unique<float_t[]>(n);
@@ -183,7 +192,7 @@ int main() {
         printf("Adding item[%03d] v=%05.5f w=%05.5f\n", i, vals[i], weights[i]);
     }
 
-    float_t W = 50.0;
+    float_t W = 20.0;
     HashMemo hm(n);
 
     solveKnapsack(n-1, W, vals, weights, hm);
