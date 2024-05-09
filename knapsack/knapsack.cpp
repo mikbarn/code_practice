@@ -222,7 +222,7 @@ void quickHashTest() {
 
 void solveKnapsack(int32_t item, float_t W, const float_t* vals, const float_t* weights, HashMemo &memo) {
     if(item < 0 || W <= 0.0) {
-        // memo[MemoKey{item, W}] = weights[item] <= W ? vals[item]: 0.0;
+        //memo[MemoKey{item, W}] = weights[item] <= W ? vals[item]: 0.0;
         memo[MemoKey{item, W}] = 0.0f;
         return;
     }
@@ -245,6 +245,31 @@ void solveKnapsack(int32_t item, float_t W, const float_t* vals, const float_t* 
 
     memo[MemoKey{item, W}] = max(memo[MemoKey{prev, W}], memo[MemoKey{prev, without_me}] + vals[item]);
 
+}
+
+int32_t populateItems(HashMemo &memo, int32_t curr_item, float_t W, const float_t *weights, int32_t *items) {
+    int32_t item_idx = 0;
+    float_t curr_wt = W;
+
+    while (curr_wt > 0 && curr_item > -2) {
+        int32_t next_item = curr_item - 1;
+        float_t without_curr = memo[MemoKey{next_item, curr_wt}];
+        float_t curr_max = memo[MemoKey{curr_item, curr_wt}];
+        printf("%.5f < %.5f ?\n", without_curr, curr_max);
+        if(without_curr < curr_max) {
+            items[item_idx++] = curr_item;
+            curr_wt -= weights[curr_item];
+            printf("Added %d\n", curr_item);
+        } else {
+            printf("Skipping %d\n", curr_item);
+        }
+        if (memo[MemoKey{next_item, curr_wt}] <= 0.0f) {
+            curr_wt = 0.0f;
+        }
+       
+        curr_item = next_item;        
+    }
+    return item_idx;
 }
 
 
@@ -291,7 +316,7 @@ struct Test {
     }
 };
 
-const int NUM_TESTS = 3;
+const int NUM_TESTS = 5;
 
 
 int main() {
@@ -302,7 +327,7 @@ int main() {
                 10,
                 new float[]{23.0, 26.0, 20.0, 18.0, 32.0, 27.0, 29.0, 26.0, 30.0, 27.0},
                 new float[]{505.0, 352.0, 458.0, 220.0, 354.0, 414.0, 498.0, 545.0, 473.0, 543.0},
-                new int[]{0,1,2,3,7},
+                new int[]{7,3,0},
                 5,
                 1270.0f,
                 67.0f
@@ -311,7 +336,7 @@ int main() {
                 3,
                 new float[]{50, 20, 30},
                 new float[]{5.0f, 10.0f, 15.0f},
-                new int[]{1,2},
+                new int[]{2,1},
                 2,
                 25.0f,
                 50.0f
@@ -324,7 +349,25 @@ int main() {
                 1,
                 5.0f,
                 50.0f
-            }
+            },
+            Test{
+                3,
+                new float[]{10, 50, 42},
+                new float[]{10.0f, 5.0f, 15.0f},
+                new int[]{2},
+                1,
+                15.0f,
+                50.0f
+            },
+            Test{
+                3,
+                new float[]{10, 30, 49},
+                new float[]{10.0f, 5.0f, 15.0f},
+                new int[]{2},
+                1,
+                15.0f,
+                50.0f
+            }                       
     };
     Test *test;
     Test t;
@@ -357,17 +400,9 @@ int main() {
         printf("[%03d, %5.5f]: %5.5f\n", keys[i].id, keys[i].f, hm[keys[i]]);
         }
 
-        float_t val = 0.0;
 
-        auto item_picks = make_unique<uint32_t[]>(n);
-        int item_idx = 0;
-        for (int i = 0; i < n; i++) {
-            printf("[%03d] max: %5.5f\n", i, max_vals[i]);
-            if (max_vals[i] > val) {
-                item_picks[item_idx++] = i;
-                val = max_vals[i];
-            }
-        }
+        auto item_picks = make_unique<int32_t[]>(n);
+        int item_idx = populateItems(hm, n-1, W, t.w, item_picks.get());
 
         cout << "Items Expected: ";
         for (int i = 0; i < t.exp_count; i++) {
