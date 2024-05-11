@@ -8,8 +8,6 @@
 #include <time.h>
 #include <array>
 
-
-
 using namespace std;
 
 #define F_NOT_SET -1.0
@@ -276,19 +274,3 @@ int32_t populateItems(HashMemo &memo, int32_t curr_item, float_t W, const float_
 }
 
 #endif
-
-
-// float_t randFloat(float_t min = 0.0, float_t max = 1.0) {
-//     if (max <= min) {
-//         die();
-//     }
-//     float_t range = max - min;
-//     return min + (((float_t)rand() / RAND_MAX) * range);
-// }
-// unique_ptr<float_t[]> genRandom(uint32_t n, float_t max_f=10.000f) {
-//     auto vals = make_unique<float_t[]>(n);
-//     for (int i = 0; i < n; i++) {
-//         vals[i] = randFloat(0.0001, max_f);
-//     }
-//     return vals;
-// }

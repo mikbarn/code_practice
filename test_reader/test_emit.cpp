@@ -4,16 +4,7 @@
 #include "test_emit.h"
 
 
-template<typename TestType> TestEmitter<TestType>::TestEmitter(const char * _fname, const TestCaseReader<TestType> & tcr): fname(_fname), tcr(tcr) {
-
-}
-
-template<typename TestType> TestEmitter<TestType>::~TestEmitter() {
-
-}
-
-
-template<typename TestType> void TestEmitter<TestType>::seekToFilePos() {
+template<class TestType> void TestEmitter<TestType>::seekToFilePos() {
     if (!test_ifs.is_open()) {
         test_ifs.open(fname);
     }
@@ -21,43 +12,59 @@ template<typename TestType> void TestEmitter<TestType>::seekToFilePos() {
 
 };
 
-template<typename TestType> void TestEmitter<TestType>::readNextTest() {
-    auto test_lines = std::vector<std::string>(5);
+template<class TestType> void TestEmitter<TestType>::readNextTest() {
+    auto test_lines = std::vector<std::string>(0);
     auto buff = std::make_unique<char[]>(BUFF_SZ);
     bool loop = true;
 
+    if (eof_reached) {
+        return;
+    }
+
     seekToFilePos();
 
-    while (loop) {
-        test_ifs.getline(buff.get(), BUFF_SZ);
-        bool is_eof = test_ifs.eof();
-        file_pos = test_ifs.tellg();
-        if (test_ifs.bad() || (test_ifs.fail() && !is_eof)) {
-            printf("Failed reading line %d! \n", line_number);
-            exit(-1);
+    curr_test = nullptr;
+    while (curr_test == nullptr) {
+        while (loop && !eof_reached) {
+            test_ifs.getline(buff.get(), BUFF_SZ);
+            eof_reached = test_ifs.eof();
+            file_pos = test_ifs.tellg();
+            if (test_ifs.bad() || (test_ifs.fail() && !eof_reached)) {
+                printf("Failed reading line %d! \n", line_number);
+                exit(-1);
+            }
+
+            auto s = std::string(buff.get(), test_ifs.gcount());
+            size_t len = s.size();
+            size_t new_len = len;
+            auto bad = [](char & c) {return (int)c < 33;};
+
+            while (new_len > 0 && bad(s[new_len - 1])) {
+                s.pop_back();
+                new_len = s.size();
+            }
+
+            printf("Read Line [Len: %d, LStrip: %d]: '%s'\n", new_len, len-new_len, s.c_str());
+
+            if (s != TEST_START_TOKEN && new_len > 0) {
+                test_lines.push_back(s);
+            }
+
+            loop = (s != TEST_START_TOKEN || line_number == 1);
+            if (!eof_reached) 
+                ++line_number;
         }
 
-        if (!is_eof)
-            ++line_number;
-
-        auto s = std::string(buff.get(), test_ifs.gcount());
-        size_t len = s.size()-1;
-
-        std::cout << "Read line: '" << s << "'" << std::endl;
-        std::cout << s[len] << " " << (s.at(len) == '\n') << std::endl;
-        while (len >= 0 && s[len] == '\n') {
-            len = s.size() - 1;
-            s.pop_back();
-        }
-        if (s != ">") {
-            test_lines.push_back(s);
+        if (test_lines.size() > 0) {
+            curr_test = tcr.readLines(test_lines);
+            if (curr_test == nullptr) {
+                std::cout << "Couldn't parse test! " << std::endl;
+            }
         } else {
-            std::cout << "Skip token: '" << s << "'" << std::endl;
+            std::cout << "No Valid lines!" << std::endl;
+            break;
         }
-
-        loop = (line_number != 1) && (s != ">") && (!is_eof);
     }
-    curr_test = tcr.readLines(test_lines);
 };
 
 #endif
