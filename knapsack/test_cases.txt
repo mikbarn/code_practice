@@ -4,28 +4,28 @@ v=505.0, 352.0, 458.0, 220.0, 354.0, 414.0, 498.0, 545.0, 473.0, 543.0
 picks=[7,3,0]
 best=1270.0f
 limit=67.0f
-
+>
 desc=TBD
 w=50, 20, 30
 v=5.0f, 10.0f, 15.0f
 picks=[2,1]
 best=25
 limit=50
-
+>
 desc=tbd
 w=50, 51, 54
 v=5.0f, 10.0f, 15.0f
 picks=[0]
 best=5.0f,
 limit=50.0f
-
+>
 desc=tbd
 w=10, 30, 49
 v=10.0f, 5.0f, 15.0f
 picks=[2,1]
 best=15.0f
 limit=50.0f
-
+>
 desc=tbd
 w=10, 50, 42
 v=10.0f, 5.0f, 15.0f

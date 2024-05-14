@@ -2,15 +2,34 @@
 desc=Test
 key=abc
 vals=1,2,3,4, 5
+nested=[1,2,3],[4,5,6],[5,6,7]
 >
 desc=Test2
 key=xyz
 vals=6,5,40234
+nested=[3,2,1],[4,5,6],[5,6,7]
 >
 desc=Test 3
 key=idk
 vals=4,50000000000,30
+nested=[1,2,3],[4,5,6], [ 7, 8 , 90.4f]
+>
+desc=Test 3
+key=idk
+vals=4,3333,30
+nested=[],[1],[4,5,6]
+>
+desc=Test 3
+key=idk
+vals=4,3333,30
+nested=[],[1,3,4
 >
 
 
+
 >
+>
+desc=Test2
+key=xyz
+vals=6,5,40234
+nested=[5,6,7]
