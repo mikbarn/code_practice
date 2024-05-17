@@ -3,8 +3,9 @@
 
 using namespace std;
 
-struct DummyTest {
-    string desc;
+class DummyTest {
+    public:
+        string desc;
 };
 
 class DummyReader: public TestCaseReader<DummyTest> {
@@ -19,14 +20,20 @@ class DummyReader: public TestCaseReader<DummyTest> {
 };
 
 
-struct FieldTest: MappedFieldTest {
-    string desc;
-    vector<vector<float>> nested;
-    void loadCustomFields() {
-        auto tof = [](const string & s){ return stof(s);};
-        desc = fields["desc"];
-        nested = parseNestedList<float>(fields["nested"], tof);
-    }
+class FieldTest: public MappedFieldTest {
+    public:
+        string desc;
+        vector<vector<float>> nested;
+        vector<float> f_list;
+        vector<string> getValidFields() {
+            return vector<string>({"desc", "nested"});
+        }
+        void loadCustomFields() {
+            auto tof = [](const string & s){ return stof(s);};
+            desc = fields["desc"];
+            nested = parseNestedList<float>(fields["nested"], tof);
+            f_list = parseList<float>(fields["vals"], tof);
+        }
 };
 
 
@@ -48,11 +55,11 @@ int main() {
         for (const auto &outer: x.nested) {
             cout << "[ ";
             for (const auto &inner: outer) {
-                cout << inner << " "; 
+                cout << inner << " ";
             }
             cout << "]\n";
         }
-        
-    }  
+
+    }
     return 0;
 }

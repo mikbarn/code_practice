@@ -9,7 +9,7 @@
 #include <regex>
 #include <map>
 #include <stdexcept>
-
+#include "mab_logger.h"
 
 template <class TestType>
 class TestCaseReader {
@@ -22,8 +22,8 @@ template<class TestType>
 class TestEmitter {
 
     public:
-        TestEmitter(const char * _fname, const TestCaseReader<TestType> & tcr): fname(_fname), tcr(tcr) {};
-       
+        TestEmitter(const char * file_name, const TestCaseReader<TestType> & tcr): fname(file_name), tcr(tcr) {};
+
     private:
         static const int BUFF_SZ = 4096;
         inline static const std::string TEST_START_TOKEN  = ">";
@@ -34,24 +34,24 @@ class TestEmitter {
         bool eof_reached = false;
         const TestCaseReader<TestType> & tcr;
         std::unique_ptr<TestType> curr_test = nullptr;
+        mab::Logger log;
 
         void seekToFilePos();
-        void readNextTest();        
-        
+        void readNextTest();
+
         class TestIterator {
-            TestEmitter<TestType> & t; 
-            public:   
-                TestIterator(TestEmitter<TestType> & _t): t(_t) {};
-                TestIterator & operator++() { t.readNextTest(); return *this; };
-                TestType & operator*() { return  *(t.curr_test.get()); };
-                bool operator!=(const TestIterator other) {return !other.t.eof_reached;};      
+            TestEmitter<TestType> * t = nullptr;
+            public:
+                TestIterator(TestEmitter<TestType> * _t): t(_t) {};
+                TestIterator & operator++() { t->readNextTest(); return *this; };
+                TestType & operator*() {  auto b = t->curr_test.get(); return *b; };
+                bool operator!=(const TestIterator other) {return !(other.isDone() && this->isDone());}; // bad - not worth ranged loop
+                bool isDone() const {return (t == nullptr || t->curr_test == nullptr); };
         };
 
-        TestIterator it = TestIterator(*this);
-        
     public:
-        TestIterator & begin() { readNextTest(); return it; };
-        TestIterator & end() { return it; };
+        TestIterator begin() { readNextTest(); return TestIterator(this); };
+        TestIterator end() { return TestIterator(nullptr); };
 };
 
 
@@ -67,6 +67,7 @@ template<class TestType> void TestEmitter<TestType>::readNextTest() {
     auto test_lines = std::vector<std::string>(0);
     auto buff = std::make_unique<char[]>(BUFF_SZ);
     bool loop = true;
+    curr_test = nullptr;
 
     if (eof_reached) {
         return;
@@ -74,14 +75,17 @@ template<class TestType> void TestEmitter<TestType>::readNextTest() {
 
     seekToFilePos();
 
-    curr_test = nullptr;
-    while (curr_test == nullptr) {
+    while ((curr_test == nullptr) && (!eof_reached)) {
+        test_lines.clear();
+        loop = true;
+        size_t starting_line = line_number;
+
         while (loop && !eof_reached) {
             test_ifs.getline(buff.get(), BUFF_SZ);
             eof_reached = test_ifs.eof();
             file_pos = test_ifs.tellg();
             if (test_ifs.bad() || (test_ifs.fail() && !eof_reached)) {
-                printf("Failed reading line %d! \n", line_number);
+                log.crit("Failed reading line %d!", line_number);
                 exit(-1);
             }
 
@@ -95,108 +99,118 @@ template<class TestType> void TestEmitter<TestType>::readNextTest() {
                 new_len = s.size();
             }
 
-            printf("Read Line [Len: %d, LStrip: %d]: '%s'\n", new_len, len-new_len, s.c_str());
+            log.debug("Read Line [Len: %d, LStrip: %d]: '%s'", new_len, len-new_len, s.c_str());
 
             if (s != TEST_START_TOKEN && new_len > 0) {
                 test_lines.push_back(s);
             }
 
             loop = (s != TEST_START_TOKEN || line_number == 1);
-            if (!eof_reached) 
+            if (!eof_reached)
                 ++line_number;
         }
 
         if (test_lines.size() > 0) {
-            curr_test = tcr.readLines(test_lines);
+            try {
+                curr_test = tcr.readLines(test_lines);
+            } catch (std::invalid_argument & ia) {
+                log.error("Error reading test: %s Lines %d - %d", ia.what(), starting_line, line_number - 1);
+            }
             if (curr_test == nullptr) {
-                std::cout << "Couldn't parse test! " << std::endl;
+                log.error("Couldn't parse test! Lines %d - %d", starting_line, line_number - 1);
             }
         } else {
-            std::cout << "No Valid lines!" << std::endl;
-            break;
+            log.error("No Valid lines! Lines %d - %d",  starting_line, line_number - 1);
         }
     }
+
+     std::cout << "Return! " << (curr_test == nullptr? "NULL": "NOT NULL") << " EOF? " << (eof_reached? "Y": "N") << std::endl;
 };
 
 
 
 static const std::regex kv_regex("(\\w+)\\s*=\\s*([^\n]+)");
 
-struct MappedFieldTest {
-    std::map<std::string, std::string> fields;
-    
-    void loadCustomFields() {}
+class MappedFieldTest {
+    private:
+        Logger log;
+    public:
+        std::map<std::string, std::string> fields;
 
-    std::vector<std::string> splitString(std::string s, const std::string delim=",") {
-        std::vector<std::string> rval;
-        size_t start = 0;
-        size_t end_pos;
-        while ((end_pos = s.find(delim, start)) != std::string::npos) {
-            std::string nxt;
-            nxt = s.substr(start, end_pos);
-            start = end_pos + delim.size();
-            rval.push_back(nxt);
-        }
-        if (start < s.size()) {
-            rval.push_back(s.substr(start, s.size()));
-        } else {
-            rval.push_back(std::string(""));
-        }
-        return rval;           
-    }
+        virtual void loadCustomFields() {};
+        virtual ~MappedFieldTest() {};
+        virtual std::vector<std::string> getValidFields() { return std::vector<std::string>(0); };
 
-    template <typename T>
-    std::vector<T> parseList(std::string line, T (*converter)(const std::string &)) {
-        std::vector<T> rval;    
-        for (const auto &tok : splitString(line)) {
-            try {
-                T t = (*converter)(tok);
-                rval.push_back(t);
+        std::vector<std::string> splitString(std::string s, const std::string delim=",") {
+            std::vector<std::string> rval;
+            size_t start = 0;
+            size_t end_pos;
+            while ((end_pos = s.find(delim, start)) != std::string::npos) {
+                std::string nxt;
+                nxt = s.substr(start, end_pos);
+                start = end_pos + delim.size();
+                rval.push_back(nxt);
             }
-            catch (const std::invalid_argument& ia) {
-                std::cout << "Could not convert " << tok << "!!!\n";
-                throw;
+            if (start < s.size()) {
+                rval.push_back(s.substr(start, s.size()));
+            } else {
+                rval.push_back(std::string(""));
             }
+            return rval;
         }
-        return rval;
-    }
 
-    template <typename T>
-    std::vector<std::vector<T>> parseNestedList(std::string line, T (*converter)(const std::string &)) {
-        std::vector<std::vector<T>> rval;
-        size_t start = 0;
-        size_t end = 0;
-        while (start < line.size()) {
-            if (line[start] == '[') {
-                end = start + 1;
-                while (end < line.size()) {
-                    if (line[end] == ']') {
-                        size_t dist = (end - 1) - start;
-                        if (dist > 0) {
-                            std::string sub = line.substr(start+1, dist);
-                            rval.push_back(parseList(sub, converter));
-                        } else {
-                            rval.push_back(std::vector<T>(0));
+        template <typename T>
+        std::vector<T> parseList(std::string line, T (*converter)(const std::string &)) {
+            std::vector<T> rval;
+            for (const auto &tok : splitString(line)) {
+                try {
+                    T t = (*converter)(tok);
+                    rval.push_back(t);
+                }
+                catch (const std::invalid_argument& ia) {
+                    log.error("Could not convert token: '%s'", tok.c_str());
+                    throw;
+                }
+            }
+            return rval;
+        }
+
+        template <typename T>
+        std::vector<std::vector<T>> parseNestedList(std::string line, T (*converter)(const std::string &)) {
+            std::vector<std::vector<T>> rval;
+            size_t start = 0;
+            size_t end = 0;
+            while (start < line.size()) {
+                if (line[start] == '[') {
+                    end = start + 1;
+                    while (end < line.size()) {
+                        if (line[end] == ']') {
+                            size_t dist = (end - 1) - start;
+                            if (dist > 0) {
+                                std::string sub = line.substr(start+1, dist);
+                                rval.push_back(parseList(sub, converter));
+                            } else {
+                                rval.push_back(std::vector<T>(0));
+                            }
+                            start = end;
+                            break;
                         }
-                        start = end;
-                        break;
+                        ++end;
                     }
-                    ++end;
+                    if (end >= line.size()) {
+                        throw std::invalid_argument("Mismatched '[' in nested list");
+                    }
                 }
-                if (end >= line.size()) {
-                    throw std::runtime_error("Mismatched '[' in nested list");
-                }
+                ++start;
             }
-            ++start;
-        }
-        return rval;
-    }        
+            return rval;
+    }
 };
 
-template<class X>
-class MappedFieldReader: public TestCaseReader<X> {
-    std::unique_ptr<X> readLines(std::vector<std::string> lines) const {
-        auto tst = std::make_unique<X>();
+template<class TestType>
+class MappedFieldReader: public TestCaseReader<TestType> {
+    std::unique_ptr<TestType> readLines(std::vector<std::string> lines) const {
+        auto tst = std::make_unique<TestType>();
         std::smatch matches;
         for (std::string &x: lines) {
             if(std::regex_search(x, matches, kv_regex)) {
@@ -207,13 +221,23 @@ class MappedFieldReader: public TestCaseReader<X> {
                     std::cout << "Got " << matches.size() << "?\n";
                     for (int i = 0; i < matches.size(); i++) {
                         std::cout << matches[i] << std::endl;
-                    }  
+                    }
                 }
             } else {
-                std::cout << "Pattern not found ?\n";
+                log.debug("Pattern key=val not found for line: '%s'", x.c_str());
             }
         }
-        tst->loadCustomFields();
+        for (const auto &_x : tst->getValidFields()) {
+            if (tst->fields.count(_x) != 1) {
+                log.error("Required field %s is missing!", _x.c_str());
+                return nullptr;
+            }
+        }
+        try {
+            tst->loadCustomFields();
+        } catch (std::invalid_argument & ia) {
+            return nullptr;
+        }
         return tst;
     }
 
