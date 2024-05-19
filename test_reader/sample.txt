@@ -29,6 +29,9 @@ nested=[],[1,3,4
 
 >
 >
+a=1
+b=2
+>
 desc=Test2
 key=xyz
 vals=6,5,40234

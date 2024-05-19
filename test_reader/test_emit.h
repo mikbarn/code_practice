@@ -14,13 +14,12 @@
 template <class TestType>
 class TestCaseReader {
     public:
-        virtual std::unique_ptr<TestType> readLines(std::vector<std::string> test_lines) const;
+        virtual std::unique_ptr<TestType> readLines(std::vector<std::string> test_lines) const = 0;
 };
 
 
 template<class TestType>
 class TestEmitter {
-
     public:
         TestEmitter(const char * file_name, const TestCaseReader<TestType> & tcr): fname(file_name), tcr(tcr) {};
 
@@ -123,8 +122,6 @@ template<class TestType> void TestEmitter<TestType>::readNextTest() {
             log.error("No Valid lines! Lines %d - %d",  starting_line, line_number - 1);
         }
     }
-
-     std::cout << "Return! " << (curr_test == nullptr? "NULL": "NOT NULL") << " EOF? " << (eof_reached? "Y": "N") << std::endl;
 };
 
 
@@ -133,7 +130,7 @@ static const std::regex kv_regex("(\\w+)\\s*=\\s*([^\n]+)");
 
 class MappedFieldTest {
     private:
-        Logger log;
+        mab::Logger log;
     public:
         std::map<std::string, std::string> fields;
 
@@ -209,36 +206,36 @@ class MappedFieldTest {
 
 template<class TestType>
 class MappedFieldReader: public TestCaseReader<TestType> {
-    std::unique_ptr<TestType> readLines(std::vector<std::string> lines) const {
-        auto tst = std::make_unique<TestType>();
-        std::smatch matches;
-        for (std::string &x: lines) {
-            if(std::regex_search(x, matches, kv_regex)) {
-                if (matches.size() == 3) {
-                    tst->fields[matches[1]] = matches[2];
-                    // std::cout << "Stored field: " << matches[0] << "\n";
-                } else {
-                    std::cout << "Got " << matches.size() << "?\n";
-                    for (int i = 0; i < matches.size(); i++) {
-                        std::cout << matches[i] << std::endl;
+    public:
+        mab::Logger log;
+        std::unique_ptr<TestType> readLines(std::vector<std::string> lines) const override {
+            auto tst = std::make_unique<TestType>();
+            std::smatch matches;
+            for (std::string &x: lines) {
+                if(std::regex_search(x, matches, kv_regex)) {
+                    if (matches.size() == 3) {
+                        tst->fields[matches[1]] = matches[2];
+                    } else {
+                        std::cout << "Got " << matches.size() << "?\n";
+                        for (size_t i = 0; i < matches.size(); i++) {
+                            std::cout << matches[i] << std::endl;
+                        }
                     }
+                } else {
+                    log.debug("Pattern key=val not found for line: '%s'", x.c_str());
                 }
-            } else {
-                log.debug("Pattern key=val not found for line: '%s'", x.c_str());
             }
-        }
-        for (const auto &_x : tst->getValidFields()) {
-            if (tst->fields.count(_x) != 1) {
-                log.error("Required field %s is missing!", _x.c_str());
+            for (const auto &_x : tst->getValidFields()) {
+                if (tst->fields.count(_x) != 1) {
+                    log.error("Required field %s is missing!", _x.c_str());
+                    return nullptr;
+                }
+            }
+            try {
+                tst->loadCustomFields();
+            } catch (std::invalid_argument & ia) {
                 return nullptr;
             }
+            return tst;
         }
-        try {
-            tst->loadCustomFields();
-        } catch (std::invalid_argument & ia) {
-            return nullptr;
-        }
-        return tst;
-    }
-
 };

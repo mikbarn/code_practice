@@ -9,7 +9,7 @@ class DummyTest {
 };
 
 class DummyReader: public TestCaseReader<DummyTest> {
-    unique_ptr<DummyTest> readLines(vector<string> lines) const {
+    unique_ptr<DummyTest> readLines(vector<string> lines) const override {
         for (auto &x: lines) {
             cout << " -- " <<  x << endl;
         }
@@ -44,6 +44,7 @@ int main() {
     // for (DummyTest &x: tests) {
     //     cout << "Running test: " << x.desc << "\n";
     // }
+    
 
     MappedFieldReader<FieldTest> fr;
     TestEmitter<FieldTest> field_tests("sample.txt",  fr);
